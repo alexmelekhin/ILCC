@@ -24,8 +24,8 @@ marker_size = make_tuple(params["pattern_size"])
 marker_l = params["grid_length"] * marker_size[1]
 marker_s = params["grid_length"] * marker_size[0]
 
-marker_th_l_max = marker_l * 1.6
-marker_th_s_max = marker_s * 1.6
+marker_th_l_max = marker_l * 1.9
+marker_th_s_max = marker_s * 1.9
 
 marker_th_l_min = marker_l * 0.8
 marker_th_s_min = marker_s * 0.8

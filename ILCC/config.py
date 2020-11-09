@@ -14,7 +14,7 @@ import os
 def default_params():
     '''Return default configuration
     '''
-    default_params_yaml = open("config.yaml", "r")
+    default_params_yaml = open("DATA/config.yaml", "r")
     if(yaml.__version__[0]>=5):
         params = yaml.safe_load(default_params_yaml)
     else:

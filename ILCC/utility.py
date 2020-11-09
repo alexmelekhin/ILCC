@@ -805,8 +805,9 @@ def vis_back_proj(ind=1, img_style="edge", pcd_style="intens", hide_occlussion_b
 
 
 if __name__ == "__main__":
-    # vis_back_proj(ind=1, img_style="orig", pcd_style="dis", hide_occlussion_by_marker=True)
-    vis_back_proj(ind=1, img_style="edge", pcd_style="intens", hide_occlussion_by_marker=False)
+    vis_back_proj(ind=1, img_style="orig", pcd_style="dis", hide_occlussion_by_marker=False)
+    vis_back_proj(ind=2, img_style="orig", pcd_style="dis", hide_occlussion_by_marker=False)
+    vis_back_proj(ind=3, img_style="orig", pcd_style="dis", hide_occlussion_by_marker=False)
 
     # vis_all_markers(np.arange(1, 5).tolist())
     # vis_all_markers([1])

@@ -103,8 +103,7 @@ def detect_img_corners():
                 params['file_name_digits']) + "_img_corners" + ".txt"
             np.savetxt(save_points_filename, np.squeeze(corner_points), delimiter=",")
         except:
-            continue
-
+            raise RuntimeError()
 
 
 if __name__ == '__main__':
