@@ -498,7 +498,7 @@ def cal_ext_paras(ind_ls = (np.arange(1, params['poses_num']+1)).tolist()):
                 cv2.imwrite(save_file, ret)
 
     else:
-        raise "The input camera type is not implemented yet!"
+        raise RuntimeError("The input camera type is not implemented yet!")
 
 
 if __name__ == "__main__":
