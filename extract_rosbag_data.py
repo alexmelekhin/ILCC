@@ -22,9 +22,9 @@ def build_parser():
     parser.add_argument('-pcd-topic', '--point-clouds-topic', type=str, required=True)
     parser.add_argument('-out-img-fld', '--out-images-folder', type=str, required=True)
     parser.add_argument('-out-pcd-fld', '--out-point-clouds-folder', type=str, required=True)
-    parser.add_argument('-undist', '--undistort', action='store_true')
-    parser.add_argument('-mtx', '--camera-matrix', type=str)
-    parser.add_argument('-dist', '--distortion-coefficients', type=str)
+    parser.add_argument('-do-undist', '--do-undistort', action='store_true')
+    parser.add_argument('-mtx', '--camera-matrix', type=str, help="Required if --do-undistort is set.")
+    parser.add_argument('-dist', '--distortion-coefficients', type=str, help="Required if --do-undistort is set.")
     return parser
 
 
@@ -108,7 +108,7 @@ def extract_rosbag_data_folder(data_folder, images_topic, point_clouds_topic, ou
 if __name__ == '__main__':
     parser = build_parser()
     args = parser.parse_args()
-    if args.undistort:
+    if args.do_undistort:
         camera_matrix = args.camera_matrix
         camera_matrix = camera_matrix.split()
         assert len(camera_matrix) == 9
@@ -122,8 +122,9 @@ if __name__ == '__main__':
         camera_matrix = None
         distortion_coefficients = None
     extract_rosbag_data_folder(args.data_folder, args.images_topic, args.point_clouds_topic, args.out_images_folder,
-                               args.out_point_clouds_folder, undistort=args.undistort, camera_matrix=camera_matrix,
+                               args.out_point_clouds_folder, undistort=args.do_undistort, camera_matrix=camera_matrix,
                                distortion_coefficients=distortion_coefficients)
-    if args.undistort and new_image_shape_comp is not None:
+    if args.do_undistort and new_image_shape_comp is not None:
         print('New image shape (w, h): ', new_image_shape_comp)
         print('New camera matrix: ', list(new_camera_matrix_comp.reshape(1, 9)[0]))
+        
