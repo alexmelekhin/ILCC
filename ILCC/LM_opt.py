@@ -10,11 +10,13 @@ from scipy.optimize import least_squares
 import pyopengv
 import time
 import config
+from ast import literal_eval as make_tuple
+from config import dataset
 
 params = config.default_params()
-from ast import literal_eval as make_tuple
-
 (H, W) = make_tuple(params['image_res'])
+
+skip_ids = (2, 4, 5, 7, 8, 9, 10, 12, 13, 14, 15, 17, 18, 27, 28, 29,)
 
 if params['camera_type'] == "perspective":
     intrinsic_paras_tuple = make_tuple(params['instrinsic_para'])
@@ -292,10 +294,10 @@ def opt_r_t(corners_in_img_arr, corners_in_pcd_arr, initial_guess=np.zeros(6).to
     return res
 
 
-def cal_ext_paras(ind_ls = (np.arange(1, params['poses_num']+1)).tolist()):
-    #ind_ls: Indexes of pairs used for optimization
-	
+def cal_ext_paras(ind_ls=(np.arange(1, params['poses_num']+1)).tolist()):
     ls = ind_ls
+    for rem in skip_ids:
+        ls.remove(rem)
     # res_ls = []
     # pnp_ls = []
 

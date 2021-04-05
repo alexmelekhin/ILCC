@@ -1,18 +1,22 @@
 import numpy as np
-print np
 import cv2
 import os
 from ast import literal_eval as make_tuple
 import config
 import shutil
 import sys
+from config import dataset
 
+print np
 params = config.default_params()
+
+show_corners = False
+skip_ids = (28, 29,)
 
 
 # corner detection from one image
 def get_corner_coords(imagefilename, backend=params['backend'], size=make_tuple(params['pattern_size']),
-                      show_figure=False, save_figure=params['output_img_with_dectected_corners']):
+                      save_corners=params['output_img_with_dectected_corners']):
     if backend == "matlab":
         try:
             import matlab.engine
@@ -30,22 +34,24 @@ def get_corner_coords(imagefilename, backend=params['backend'], size=make_tuple(
             return None
 
         np_imagePoints = np.array(imagePoints)
-        if save_figure or show_figure:
+        if save_corners or show_corners:
             img = cv2.imread(imagefilename)
             size = tuple((np.array(boardSize).astype(np.int32) - 1).flatten())
             cv2.drawChessboardCorners(img, size, np_imagePoints.astype(np.float32), 1)
-            if save_figure:
+            if save_corners:
                 save_imagefilename = os.path.join(params['base_dir'], "output")+"/img_corners/" + \
                                      (imagefilename.split("/")[-1]).split(".")[
                                          0] + "_detected_corners" + "." + params['image_format']
                 cv2.imwrite(save_imagefilename, img)
                 print "Image with detected_corners is saved in " + save_imagefilename
-            if show_figure:
+            if show_corners:
                 cv2.imshow("image with detected corners", img)
                 while True:
                     k = cv2.waitKey(1)
                     if k == 27:
                         cv2.destroyAllWindows()
+                        break
+                    if cv2.getWindowProperty("image with detected corners", cv2.WND_PROP_VISIBLE) < 1:
                         break
 
         return np_imagePoints
@@ -67,16 +73,20 @@ def get_corner_coords(imagefilename, backend=params['backend'], size=make_tuple(
             return None
 
         cv2.drawChessboardCorners(img, size, corners, ret)
-        cv2.namedWindow("img", cv2.WINDOW_NORMAL)
-        cv2.imshow('img', img)
-        while True:
-            k = cv2.waitKey(1)
-            if k == 27:
-                cv2.destroyAllWindows()
-                break
-        save_imagefilename = "output/img_corners/" + (imagefilename.split("/")[-1]).split(".")[
-            0] + "_detected_corners" + "." + params['image_format']
-        cv2.imwrite(save_imagefilename, img)
+        if show_corners:
+            cv2.namedWindow("img", cv2.WINDOW_NORMAL)
+            cv2.imshow('img', img)
+            while True:
+                k = cv2.waitKey(1)
+                if k == 27:
+                    cv2.destroyAllWindows()
+                    break
+                if cv2.getWindowProperty('img', cv2.WND_PROP_VISIBLE) < 1:
+                    break
+        if save_corners:
+            save_imagefilename = "output/img_corners/" + (imagefilename.split("/")[-1]).split(".")[
+                0] + "_detected_corners" + "." + params['image_format']
+            cv2.imwrite(save_imagefilename, img)
         return corners
 
     else:
@@ -86,12 +96,13 @@ def get_corner_coords(imagefilename, backend=params['backend'], size=make_tuple(
 #
 def detect_img_corners():
     ls = np.arange(1,params['poses_num']+1).tolist()
-    # ls = [20]
     img_corner_path = os.path.join(params['base_dir'], "output/img_corners/")
     if os.path.isdir(img_corner_path):
         shutil.rmtree(img_corner_path)
     os.makedirs(img_corner_path)
     for i in ls:
+        if i in skip_ids:
+            continue
         try:
             imagefilename = os.path.join(params['base_dir'],
                                          "img", str(i).zfill(params['file_name_digits']) + "." + params['image_format'])

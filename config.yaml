@@ -20,10 +20,12 @@
 
 
 ######### Parameters for detecting chessboard from segmentation result
-'pattern_size': (6,8)  # width and height
+'pattern_size': (6,8)  # width and height (number of squares)
 'grid_length': 0.075 #the length of one grid of the pattern [m]
 'chessboard_detect_planar_PCA_ratio': 0.01 # The threshold of the planarity check of the potential chessboard with PCA
 'marker_range_limit': 5 #The farthest range of the chessboard for filtering irrelative segments. Segments whose centroid to Velodyne farther that this threshold will not be considered as a potential chessboard.
+'min_scale': 0.8
+'max_scale': 1.6
 
 ######## Parameters for 3D corner detection from detected chessboard point cloud segment
 'start_pattern_corner': 0 #The color of the pattern in the left down of the chessboard and 0 for black  1 for white

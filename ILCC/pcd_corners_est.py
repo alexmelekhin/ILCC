@@ -14,26 +14,32 @@ from multiprocessing import Pool
 import re
 import warnings
 from scipy import stats
+from config import dataset
 
 import config
 
 params = config.default_params()
 
-# marker length of long side and short side
 marker_size = make_tuple(params["pattern_size"])
-marker_l = params["grid_length"] * marker_size[1]
 marker_s = params["grid_length"] * marker_size[0]
+marker_l = params["grid_length"] * marker_size[1]
 
-marker_th_l_max = marker_l * 1.6
-marker_th_s_max = marker_s * 1.6
+marker_th_l_min = marker_l * params['min_scale']
+marker_th_s_min = marker_s * params['min_scale']
 
-marker_th_l_min = marker_l * 0.8
-marker_th_s_min = marker_s * 0.8
+marker_th_l_max = marker_l * params['max_scale']
+marker_th_s_max = marker_s * params['max_scale']
 
-# if the point clouds haven't been segmented, they will be processed
-# not_segmented = params['not_segmented']
-not_segmented = True
+not_segmented = True  # if point clouds are not segmented yet
 debug = False
+show_candidates = False  # show all the candidates that might be the chessboard
+show_found_board = False  # show the segment that was chosen as the chessboard
+show_XY_board = False  # show the chessboard segment shifted into XY plane
+show_refined_board = False  # show refined chessboard segment
+use_vtk = debug or show_candidates or show_found_board
+use_opencv = show_XY_board or show_refined_board
+skip_ids = (2, 4, 5, 7, 8, 9, 10, 12, 13, 14, 18, 27, 29,)
+
 # get vertical and horizontal scan resolution for jdc and agglomeration
 if params['LiDAR_type'] == 'hdl32':
     h_coef = 2 * np.sin(np.deg2rad(360. / (70000. / 32.)) / 2)
@@ -374,11 +380,11 @@ def calc_vectors_pca_correlation(a, b):
         return False
 
 
-if debug:
+if use_vtk:
     import vtk
 
 
-    def show_pcd_ndarray(array_data, color_arr=[0, 255, 0]):
+    def show_pcd_3d(array_data, color_arr=[0, 255, 0]):
         all_rows = array_data.shape[0]
         Colors = vtk.vtkUnsignedCharArray()
         Colors.SetNumberOfComponents(3)
@@ -427,6 +433,7 @@ if debug:
         # Render Window
         renderWindow = vtk.vtkRenderWindow()
         renderWindow.AddRenderer(renderer)
+        renderWindow.SetSize(800, 800)
 
         # Interactor
         renderWindowInteractor = vtk.vtkRenderWindowInteractor()
@@ -435,6 +442,44 @@ if debug:
         # Begin Interaction
         renderWindow.Render()
         renderWindowInteractor.Start()
+
+
+if use_opencv:
+    import cv2
+
+
+    def show_pcd_2d(pcd, intensities):
+        min_x = pcd[:, 0].min()
+        max_x = pcd[:, 0].max()
+        min_y = pcd[:, 1].min()
+        max_y = pcd[:, 1].max()
+        dx = max(abs(min_x), abs(max_x)) * 2
+        dy = max(abs(min_y), abs(max_y)) * 2
+        im_w = 800
+        im_h = 600
+        image = np.zeros((im_h, im_w, 3), np.uint8)
+        k = min(im_w / dx, im_h / dy) / 1.1
+        max_intensity = intensities.max()
+        for point, intensity in zip(pcd, intensities):
+            point = point[:2].copy()
+            point *= k
+            point += np.array([im_w / 2, im_h / 2])
+            x = point[0]
+            y = point[1]
+            i = int(x)
+            j = im_h - int(y) - 1
+            brightness = int(255 / max_intensity * intensity)
+            cv2.circle(image, (i, j), 2, (brightness, brightness, brightness), 2)
+        cv2.line(image, (0, int(im_h / 2)), (im_w - 1, int(im_h / 2)), (0, 0, 255), 1)
+        cv2.line(image, (int(im_w / 2), 0), (int(im_w / 2), im_h - 1), (0, 0, 255), 1)
+        cv2.imshow('pcd', image)
+        while True:
+            k = cv2.waitKey(1)
+            if k == 27:
+                cv2.destroyAllWindows()
+                break
+            if cv2.getWindowProperty('pcd', cv2.WND_PROP_VISIBLE) < 1:
+                break
 
 
 # determine whether a segment is the potential chessboard's point cloud
@@ -449,7 +494,7 @@ def is_marker(file_full_path, range_res, points_num_th=250):
         tmp_list.extend(jdc)
     arr = np.array(tmp_list)
     if debug:
-        show_pcd_ndarray(arr)
+        show_pcd_3d(arr)
     if arr.shape[0] < points_num_th:
         if debug:
             print "points num: ", arr.shape[0]
@@ -501,13 +546,14 @@ def is_marker(file_full_path, range_res, points_num_th=250):
             print file_full_path
             print "passed"
             print "pca: ", pca.explained_variance_ratio_
-            if debug:
-                show_pcd_ndarray(arr)
+            if debug or show_candidates:
+                show_pcd_3d(arr)
             return True
         else:
             return False
     else:
-        # print "over length of diagonal line"
+        if debug:
+            print "too large or too small"
         return False
 
 
@@ -520,11 +566,12 @@ def find_marker(file_path, csv_path, range_res=params['marker_range_limit']):
         if is_marker(file_path + file, range_res):
             # print file
             res_ls.append(file_path + file)
+    idx = int(file_path.split('/')[-2])
     print len(res_ls)
     if len(res_ls) == 0:
         AssertionError("no marker is found")
     if len(res_ls) > 1:
-        print "one than one candicate of the marker is found!"
+        print "more than one candidate of the marker is found!"
         print res_ls
         print "The segment with most uniform intensity distribution is considered as the marker"
         num_ls = []
@@ -612,7 +659,8 @@ def transfer_by_pca(arr):
     ####################################################
     trans_mat = pca.components_
     # swith x and y axis
-    trans_mat[[0, 1]] = trans_mat[[1, 0]]
+    if marker_size[0] < marker_size[1]:
+        trans_mat[[0, 1]] = trans_mat[[1, 0]]
     # cal z axis to obey the right hands
     trans_mat[2] = np.cross(trans_mat[0], trans_mat[1])
 
@@ -663,14 +711,14 @@ def cost_func_for_opt_mini(theta_t, transed_pcd, marker_full_data_arr, gray_zone
                 j = int((row[1] + y_res * grid_len / 2) / grid_len)
                 if i % 2 == 0:
                     if j % 2 == 0:
-                        color = 0
+                        color = params['start_pattern_corner']
                     else:
-                        color = 1
+                        color = 1 - params['start_pattern_corner']
                 else:
                     if j % 2 == 0:
-                        color = 1
+                        color = 1 - params['start_pattern_corner']
                     else:
-                        color = 0
+                        color = params['start_pattern_corner']
 
                 estimated_color = (np.sign(row[params['intensity_col_ind']] - gray_zone[1]) + 1) / 2
                 if estimated_color != color:
@@ -825,11 +873,13 @@ def run(csv_path, save_folder_path=os.path.join(params['base_dir'], "output/pcd_
 
     marker_pkl = find_marker(file_path=os.path.abspath(find_marker_path) + "/", csv_path=csv_path)
     marker_full_data_arr = exact_full_marker_data(csv_path, marker_pkl)
+    if show_found_board:
+        show_pcd_3d(marker_full_data_arr[:, :3])
 
-    # fit the points to the plane model
+    # project the points of the chessboard to the estimated plane
     model = get_plane_model(marker_full_data_arr[:, :3])
-    pl_p = np.array([0, 0, -model[3] / model[2]])  # a point on the plane of the model
     normal = np.array(model[:3])
+    pl_p = -model[3] * normal  # a point on the plane of the model
     fitted_list = []
     for i in marker_full_data_arr[:, :3]:
         b = p2pl_proj(normal, pl_p, i)
@@ -837,14 +887,16 @@ def run(csv_path, save_folder_path=os.path.join(params['base_dir'], "output/pcd_
     marker_data_arr_fitted = np.array(fitted_list)
     marker_full_data_arr_fitted = np.hstack([marker_data_arr_fitted, marker_full_data_arr[:, 3:]])
 
-    # trans chessboard
+    # rotate and translate the chessboard so that it is in XY plane with sides parallel to X and Y axes
+    # and its center is in the origin
     if 1:
-        # render for model of checkerboard
         rot1, transed_pcd = transfer_by_pca(marker_data_arr_fitted)
         t1 = transed_pcd.mean(axis=0)
         transed_pcd = transed_pcd - t1
+        if show_XY_board:
+            show_pcd_2d(transed_pcd, marker_full_data_arr_fitted[:, params['intensity_col_ind']])
 
-    # calculate the rotate angle in xoy palne around the z axis
+    # calculate the rotate angle in XY plane around the Z axis
     if 1:
         low_intes, high_intens = get_gray_thre(marker_full_data_arr_fitted[:, params['intensity_col_ind']])
         print "low_intes,high_intes:", low_intes, high_intens
@@ -873,9 +925,11 @@ def run(csv_path, save_folder_path=os.path.join(params['base_dir'], "output/pcd_
         if 1:
             transed_pcd = np.dot(transforms3d.axangles.axangle2mat([0, 0, 1], res.x[0]),
                                  (transed_pcd + np.array([[res.x[1], res.x[2], 0]])).T).T
+            if show_refined_board:
+                show_pcd_2d(transed_pcd, marker_full_data_arr_fitted[:, params['intensity_col_ind']])
 
-        gird_coords = generate_grid_coords()
-        grid_ls = [(p[0]).flatten()[:2] for p in gird_coords]
+        grid_coords = generate_grid_coords()
+        grid_ls = [(p[0]).flatten()[:2] for p in grid_coords]
         corner_arr = np.transpose(np.array(grid_ls).reshape(size[0], size[1], 2)[1:, 1:], (1, 0, 2))
 
     return [rot1, t1, rot2, t2, corner_arr, res.x, os.path.relpath(marker_pkl[0])]
@@ -908,6 +962,8 @@ def detect_pcd_corners():
     for file in file_ls:
         if file.find("csv") > -1:
             pcd_ls.append(int(re.findall(r'\d+', file)[0]))
+    for rem in skip_ids:
+        pcd_ls.remove(rem)
     if params["multi_proc"]:
         pool = Pool(params["proc_num"])
         pool.map(main_for_pool, pcd_ls)

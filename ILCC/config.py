@@ -8,13 +8,13 @@ import yaml
 import os
 
 
-# 'file_name_digits': 4 #The number of digits of the filename
+dataset = 'test'
 
 
 def default_params():
     '''Return default configuration
     '''
-    default_params_yaml = open("DATA/config.yaml", "r")
+    default_params_yaml = open(dataset + "/config.yaml", "r")
     if(yaml.__version__[0]>=5):
         params = yaml.safe_load(default_params_yaml)
     else:

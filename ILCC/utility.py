@@ -729,7 +729,7 @@ def back_project_pcd(img, pcd_arr, color_arr, r_t, i, hide_occlussion_by_marker)
 
 
 def vis_back_proj(ind=1, img_style="edge", pcd_style="intens", hide_occlussion_by_marker=False,
-                  save_without_show=False):
+                  save_without_show=False, calib_file=None):
     imgfile = os.path.join(params['base_dir'],
                            "img/" + str(ind).zfill(params["file_name_digits"]) + "." + params['image_format'])
     if img_style == "edge":
@@ -748,11 +748,14 @@ def vis_back_proj(ind=1, img_style="edge", pcd_style="intens", hide_occlussion_b
     dis_arr = np.linalg.norm(pcd, axis=1)
     intens = csv[:, params['intensity_col_ind']]
 
-    filels = os.listdir(params['base_dir'])
     cali_file_ls = []
-    for file in filels:
-        if file.find("cali_result.txt") > -1:
-            cali_file_ls.append(file)
+    if calib_file:
+        cali_file_ls = [calib_file]
+    else:
+        filels = os.listdir(params['base_dir'])
+        for file in filels:
+            if file.find("cali_result.txt") > -1:
+                cali_file_ls.append(file)
     if len(cali_file_ls) > 1:
         warnings.warn("More than one calibration file exit! Load the latest file.", UserWarning)
         latest_cali = find_latest(cali_file_ls)
@@ -805,10 +808,11 @@ def vis_back_proj(ind=1, img_style="edge", pcd_style="intens", hide_occlussion_b
 
 
 if __name__ == "__main__":
-    vis_back_proj(ind=1, img_style="orig", pcd_style="dis", hide_occlussion_by_marker=False)
-    vis_back_proj(ind=2, img_style="orig", pcd_style="dis", hide_occlussion_by_marker=False)
-    vis_back_proj(ind=3, img_style="orig", pcd_style="dis", hide_occlussion_by_marker=False)
-
+    # vis_back_proj(ind=1, img_style="orig", pcd_style="dis", hide_occlussion_by_marker=False)
+    # vis_back_proj(ind=2, img_style="orig", pcd_style="dis", hide_occlussion_by_marker=False)
+    # vis_back_proj(ind=3, img_style="orig", pcd_style="dis", hide_occlussion_by_marker=False)
+    for i in range(1, params['poses_num']+1):
+        vis_back_proj(ind=i, img_style="orig", pcd_style="dis", hide_occlussion_by_marker=False)
     # vis_all_markers(np.arange(1, 5).tolist())
     # vis_all_markers([1])
     # vis_segments_only_chessboard_color(1)
