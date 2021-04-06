@@ -38,7 +38,7 @@ show_XY_board = False  # show the chessboard segment shifted into XY plane
 show_refined_board = False  # show refined chessboard segment
 use_vtk = debug or show_candidates or show_found_board
 use_opencv = show_XY_board or show_refined_board
-skip_ids = (2, 4, 5, 7, 8, 9, 10, 12, 13, 14, 18, 27, 29,)
+skip_ids = ()
 
 # get vertical and horizontal scan resolution for jdc and agglomeration
 if params['LiDAR_type'] == 'hdl32':

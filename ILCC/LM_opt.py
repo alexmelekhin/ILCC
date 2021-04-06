@@ -16,7 +16,7 @@ from config import dataset
 params = config.default_params()
 (H, W) = make_tuple(params['image_res'])
 
-skip_ids = (2, 4, 5, 7, 8, 9, 10, 12, 13, 14, 15, 17, 18, 27, 28, 29,)
+skip_ids = ()
 
 if params['camera_type'] == "perspective":
     intrinsic_paras_tuple = make_tuple(params['instrinsic_para'])

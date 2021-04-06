@@ -11,7 +11,7 @@ print np
 params = config.default_params()
 
 show_corners = False
-skip_ids = (28, 29,)
+skip_ids = ()
 
 
 # corner detection from one image
