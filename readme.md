@@ -3,6 +3,9 @@
 
 [![License](https://img.shields.io/badge/license-BSD-blue.svg)](LICENSE) 
 
+## Инструкция по использованию
+Вся необходимая информация по подготовке данных, калибровке и отладке находится в [google doc](https://docs.google.com/document/d/1_KYMoqeF-m735Lu3pOroQyTiIutb6ZX18TmHAwwfH1g/edit#heading=h.ygieqwgssg8v)
+
 ## Citation
 If you find our codes and method useful to your work, please consider citing this work:
 
