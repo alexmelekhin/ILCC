@@ -49,7 +49,10 @@ def do_undistort(image, camera_matrix, distortion_coefficients):
 def extract_rosbag_image(bag, images_topic, undistort=False, camera_matrix=None, distortion_coefficients=None):
     global bridge
     image_msg = next(bag.read_messages(topics=[images_topic]))[1]
-    image = bridge.imgmsg_to_cv2(image_msg, desired_encoding='passthrough')
+    if images_topic.endswith('compressed'):
+        image = bridge.compressed_imgmsg_to_cv2(image_msg, desired_encoding='passthrough')
+    else:
+        image = bridge.imgmsg_to_cv2(image_msg, desired_encoding='passthrough')
     if undistort:
         image = do_undistort(image, camera_matrix, distortion_coefficients)
     return image
