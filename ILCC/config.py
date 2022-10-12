@@ -8,7 +8,7 @@ import yaml
 import os
 
 
-dataset = 'test'
+dataset = 'realsense_lidar_calib'
 
 
 def default_params():

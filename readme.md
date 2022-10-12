@@ -134,7 +134,7 @@ python setup.py install
     from ILCC import img_corners_est
     img_corners_est.detect_img_corners()
     ```
-    Coordinates of corners from images are saved to __DATA/output/img_corners__ with the filename *00XX_img_corners.txt* and images with marked corners are saved in the same folder with the file name *00XX_detected_corners.jpg* if _'output_img_with_dectected_corners'_ in ```config.yaml``` is set to __True__, as shown below.
+    Coordinates of corners from images are saved to __DATA/output/img_corners__ with the filename *00XX_img_corners.txt* and images with marked corners are saved in the same folder with the file name *00XX_detected_corners.jpg* if _'save_img_with_dectected_corners'_ in ```config.yaml``` is set to __True__, as shown below.
     <div style="text-align: center">
     <img src="readme_files/0001_detected_corners.jpg" width = "50%" />
     <img src="readme_files/0001_detected_corners_zoom.jpg" width = "24.35%" />

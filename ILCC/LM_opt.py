@@ -11,16 +11,6 @@ import pyopengv
 import time
 import config
 from ast import literal_eval as make_tuple
-from config import dataset
-
-params = config.default_params()
-(H, W) = make_tuple(params['image_res'])
-
-skip_ids = ()
-
-if params['camera_type'] == "perspective":
-    intrinsic_paras_tuple = make_tuple(params['instrinsic_para'])
-    intrinsic_paras = np.array(intrinsic_paras_tuple).reshape(3, 3)
 
 
 # Checks if a matrix is a valid rotation matrix.
@@ -294,10 +284,10 @@ def opt_r_t(corners_in_img_arr, corners_in_pcd_arr, initial_guess=np.zeros(6).to
     return res
 
 
-def cal_ext_paras(ind_ls=(np.arange(1, params['poses_num']+1)).tolist()):
-    ls = ind_ls
-    for rem in skip_ids:
-        ls.remove(rem)
+def cal_ext_paras():
+    ls = (np.arange(1, params['poses_num']+1)).tolist()
+    for remove_num in set(make_tuple(params['img_skip_nums']) + make_tuple(params['pcd_skip_nums'])):
+        ls.remove(remove_num)
     # res_ls = []
     # pnp_ls = []
 
@@ -365,7 +355,7 @@ def cal_ext_paras(ind_ls=(np.arange(1, params['poses_num']+1)).tolist()):
         # np.savetxt('pnp_result', pnp_ls, delimiter=',')
 
         # back_proj = True
-        if params['back_proj_corners']:
+        if params['save_back_proj_corners']:
             # for i in range(start, end):
             for i in ls:
                 imgfile = os.path.join(params['base_dir'], "img/") + str(i).zfill(params['file_name_digits']) + "." + \
@@ -463,7 +453,7 @@ def cal_ext_paras(ind_ls=(np.arange(1, params['poses_num']+1)).tolist()):
         # np.savetxt('pnp_result', pnp_ls, delimiter=',')
 
         # back_proj = True
-        if params['back_proj_corners']:
+        if params['save_back_proj_corners']:
             # for i in range(start, end):
             for i in ls:
                 imgfile = os.path.join(params['base_dir'], "img/") + str(i).zfill(params['file_name_digits']) + "." + \
@@ -504,4 +494,11 @@ def cal_ext_paras(ind_ls=(np.arange(1, params['poses_num']+1)).tolist()):
 
 
 if __name__ == "__main__":
+    params = config.default_params()
+    (H, W) = make_tuple(params['image_res'])
+
+    if params['camera_type'] == "perspective":
+        intrinsic_paras_tuple = make_tuple(params['instrinsic_para'])
+        intrinsic_paras = np.array(intrinsic_paras_tuple).reshape(3, 3)
+
     cal_ext_paras()

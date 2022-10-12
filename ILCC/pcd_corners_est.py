@@ -1,6 +1,6 @@
 import numpy as np
 from numpy import linalg as LA
-from numpy.linalg import norm, inv
+from numpy.linalg import norm
 import shutil, copy
 from sklearn.decomposition import PCA
 from scipy import spatial
@@ -13,49 +13,9 @@ from ast import literal_eval as make_tuple
 from multiprocessing import Pool
 import re
 import warnings
-from scipy import stats
-from config import dataset
-
+import cv2
+import vtk
 import config
-
-params = config.default_params()
-
-marker_size = make_tuple(params["pattern_size"])
-marker_s = params["grid_length"] * marker_size[0]
-marker_l = params["grid_length"] * marker_size[1]
-
-marker_th_l_min = marker_l * params['min_scale']
-marker_th_s_min = marker_s * params['min_scale']
-
-marker_th_l_max = marker_l * params['max_scale']
-marker_th_s_max = marker_s * params['max_scale']
-
-not_segmented = True  # if point clouds are not segmented yet
-debug = False
-show_candidates = False  # show all the candidates that might be the chessboard
-show_found_board = False  # show the segment that was chosen as the chessboard
-show_XY_board = False  # show the chessboard segment shifted into XY plane
-show_refined_board = False  # show refined chessboard segment
-use_vtk = debug or show_candidates or show_found_board
-use_opencv = show_XY_board or show_refined_board
-skip_ids = ()
-
-# get vertical and horizontal scan resolution for jdc and agglomeration
-if params['LiDAR_type'] == 'hdl32':
-    h_coef = 2 * np.sin(np.deg2rad(360. / (70000. / 32.)) / 2)
-    v_coef = 2 * np.sin(np.deg2rad(41.34 / 31.) / 2.)
-elif params['LiDAR_type'] == 'hdl64':
-    h_coef = 2 * np.sin(np.deg2rad(0.08) / 2)
-    v_coef = 2 * np.sin(np.deg2rad(0.4 / 2.))
-elif params['LiDAR_type'] == 'vlp16_puck':
-    h_coef = 2 * np.sin(np.deg2rad(0.25) / 2)
-    v_coef = 2 * np.sin(np.deg2rad(2) / 2.)
-elif params['LiDAR_type'] == 'vlp32c':
-    h_coef = 2 * np.sin(np.deg2rad(0.25) / 2)
-    v_coef = 2 * np.sin(np.deg2rad(0.333) / 2.)#non-linear [4.667, -4.   , -3.667, -3.333, -3.   , -2.667, -2.333, -2.   ,-1.333,  0.667,  1.   ,  1.667,  2.333,  3.333,  4.667,  7. , 10.333, 15.]
-    #delte_ang= [0.667,   0.333,   0.334,   0.333,   0.333,   0.334, 0.333,   0.667,   2.   ,   0.333,   0.667,   0.666,   1.   ,1.334,   2.333,   3.333,   4.6673]
-else:
-    AssertionError("Please input the right LiDAR_type in the config.yaml")
 
 
 # scanline segment class segmented scanline by scanline
@@ -190,7 +150,7 @@ class jdc_segments_collection:
         l = self.l
 
         for m in xrange(l):
-            order = np.where(raw_data[:, laser_id_col_ind] == m)  # the 4-th column means the laser id
+            order = np.where(raw_data[:, laser_id_col_ind] == m)
             temp_data = raw_data[order[0]][:, :3]  # exact XYZ data with laser_id=i
             data_arr_by_id_list = temp_data
             total_points_num = data_arr_by_id_list.shape[0]
@@ -380,106 +340,98 @@ def calc_vectors_pca_correlation(a, b):
         return False
 
 
-if use_vtk:
-    import vtk
+def show_pcd_3d(array_data, color_arr=[0, 255, 0]):
+    all_rows = array_data.shape[0]
+    Colors = vtk.vtkUnsignedCharArray()
+    Colors.SetNumberOfComponents(3)
+    Colors.SetName("Colors")
 
+    Points = vtk.vtkPoints()
+    Vertices = vtk.vtkCellArray()
 
-    def show_pcd_3d(array_data, color_arr=[0, 255, 0]):
-        all_rows = array_data.shape[0]
-        Colors = vtk.vtkUnsignedCharArray()
-        Colors.SetNumberOfComponents(3)
-        Colors.SetName("Colors")
-
-        Points = vtk.vtkPoints()
-        Vertices = vtk.vtkCellArray()
-
-        for k in xrange(all_rows):
-            point = array_data[k, :]
-            id = Points.InsertNextPoint(point[0], point[1], point[2])
-            Vertices.InsertNextCell(1)
-            Vertices.InsertCellPoint(id)
-            if vtk.VTK_MAJOR_VERSION > 6:
-                Colors.InsertNextTuple(color_arr)
-            else:
-                Colors.InsertNextTupleValue(color_arr)
-
-            dis_tmp = np.sqrt((point ** 2).sum(0))
-            # Colors.InsertNextTupleValue([0,255-dis_tmp/max_dist*255,0])
-            # Colors.InsertNextTupleValue([255-abs(point[0]/x_max*255),255-abs(point[1]/y_max*255),255-abs(point[2]/z_max*255)])
-            # Colors.InsertNextTupleValue([255-abs(point[0]/x_max*255),255,255])
-
-        polydata = vtk.vtkPolyData()
-        polydata.SetPoints(Points)
-        polydata.SetVerts(Vertices)
-        polydata.GetPointData().SetScalars(Colors)
-        polydata.Modified()
-
-        mapper = vtk.vtkPolyDataMapper()
-        if vtk.VTK_MAJOR_VERSION <= 5:
-            mapper.SetInput(polydata)
+    for k in xrange(all_rows):
+        point = array_data[k, :]
+        id = Points.InsertNextPoint(point[0], point[1], point[2])
+        Vertices.InsertNextCell(1)
+        Vertices.InsertCellPoint(id)
+        if vtk.VTK_MAJOR_VERSION > 6:
+            Colors.InsertNextTuple(color_arr)
         else:
-            mapper.SetInputData(polydata)
-        mapper.SetColorModeToDefault()
-        actor = vtk.vtkActor()
-        actor.SetMapper(mapper)
-        actor.GetProperty().SetPointSize(5)
+            Colors.InsertNextTupleValue(color_arr)
 
-        # Renderer
-        renderer = vtk.vtkRenderer()
-        renderer.AddActor(actor)
-        renderer.SetBackground(.2, .3, .4)
-        renderer.ResetCamera()
+        dis_tmp = np.sqrt((point ** 2).sum(0))
+        # Colors.InsertNextTupleValue([0,255-dis_tmp/max_dist*255,0])
+        # Colors.InsertNextTupleValue([255-abs(point[0]/x_max*255),255-abs(point[1]/y_max*255),255-abs(point[2]/z_max*255)])
+        # Colors.InsertNextTupleValue([255-abs(point[0]/x_max*255),255,255])
 
-        # Render Window
-        renderWindow = vtk.vtkRenderWindow()
-        renderWindow.AddRenderer(renderer)
-        renderWindow.SetSize(800, 800)
+    polydata = vtk.vtkPolyData()
+    polydata.SetPoints(Points)
+    polydata.SetVerts(Vertices)
+    polydata.GetPointData().SetScalars(Colors)
+    polydata.Modified()
 
-        # Interactor
-        renderWindowInteractor = vtk.vtkRenderWindowInteractor()
-        renderWindowInteractor.SetRenderWindow(renderWindow)
+    mapper = vtk.vtkPolyDataMapper()
+    if vtk.VTK_MAJOR_VERSION <= 5:
+        mapper.SetInput(polydata)
+    else:
+        mapper.SetInputData(polydata)
+    mapper.SetColorModeToDefault()
+    actor = vtk.vtkActor()
+    actor.SetMapper(mapper)
+    actor.GetProperty().SetPointSize(5)
 
-        # Begin Interaction
-        renderWindow.Render()
-        renderWindowInteractor.Start()
+    # Renderer
+    renderer = vtk.vtkRenderer()
+    renderer.AddActor(actor)
+    renderer.SetBackground(.2, .3, .4)
+    renderer.ResetCamera()
+
+    # Render Window
+    renderWindow = vtk.vtkRenderWindow()
+    renderWindow.AddRenderer(renderer)
+    renderWindow.SetSize(800, 800)
+
+    # Interactor
+    renderWindowInteractor = vtk.vtkRenderWindowInteractor()
+    renderWindowInteractor.SetRenderWindow(renderWindow)
+
+    # Begin Interaction
+    renderWindow.Render()
+    renderWindowInteractor.Start()
 
 
-if use_opencv:
-    import cv2
-
-
-    def show_pcd_2d(pcd, intensities):
-        min_x = pcd[:, 0].min()
-        max_x = pcd[:, 0].max()
-        min_y = pcd[:, 1].min()
-        max_y = pcd[:, 1].max()
-        dx = max(abs(min_x), abs(max_x)) * 2
-        dy = max(abs(min_y), abs(max_y)) * 2
-        im_w = 800
-        im_h = 600
-        image = np.zeros((im_h, im_w, 3), np.uint8)
-        k = min(im_w / dx, im_h / dy) / 1.1
-        max_intensity = intensities.max()
-        for point, intensity in zip(pcd, intensities):
-            point = point[:2].copy()
-            point *= k
-            point += np.array([im_w / 2, im_h / 2])
-            x = point[0]
-            y = point[1]
-            i = int(x)
-            j = im_h - int(y) - 1
-            brightness = int(255 / max_intensity * intensity)
-            cv2.circle(image, (i, j), 2, (brightness, brightness, brightness), 2)
-        cv2.line(image, (0, int(im_h / 2)), (im_w - 1, int(im_h / 2)), (0, 0, 255), 1)
-        cv2.line(image, (int(im_w / 2), 0), (int(im_w / 2), im_h - 1), (0, 0, 255), 1)
-        cv2.imshow('pcd', image)
-        while True:
-            k = cv2.waitKey(1)
-            if k == 27:
-                cv2.destroyAllWindows()
-                break
-            if cv2.getWindowProperty('pcd', cv2.WND_PROP_VISIBLE) < 1:
-                break
+def show_pcd_2d(pcd, intensities):
+    min_x = pcd[:, 0].min()
+    max_x = pcd[:, 0].max()
+    min_y = pcd[:, 1].min()
+    max_y = pcd[:, 1].max()
+    dx = max(abs(min_x), abs(max_x)) * 2
+    dy = max(abs(min_y), abs(max_y)) * 2
+    im_w = 800
+    im_h = 600
+    image = np.zeros((im_h, im_w, 3), np.uint8)
+    k = min(im_w / dx, im_h / dy) / 1.1
+    max_intensity = intensities.max()
+    for point, intensity in zip(pcd, intensities):
+        point = point[:2].copy()
+        point *= k
+        point += np.array([im_w / 2, im_h / 2])
+        x = point[0]
+        y = point[1]
+        i = int(x)
+        j = im_h - int(y) - 1
+        brightness = int(255 / max_intensity * intensity)
+        cv2.circle(image, (i, j), 2, (brightness, brightness, brightness), 2)
+    cv2.line(image, (0, int(im_h / 2)), (im_w - 1, int(im_h / 2)), (0, 0, 255), 1)
+    cv2.line(image, (int(im_w / 2), 0), (int(im_w / 2), im_h - 1), (0, 0, 255), 1)
+    cv2.imshow('pcd', image)
+    while True:
+        k = cv2.waitKey(1)
+        if k == 27:
+            cv2.destroyAllWindows()
+            break
+        if cv2.getWindowProperty('pcd', cv2.WND_PROP_VISIBLE) < 1:
+            break
 
 
 # determine whether a segment is the potential chessboard's point cloud
@@ -487,32 +439,22 @@ def is_marker(file_full_path, range_res, points_num_th=250):
     # result = False
     jdcs_collection = cPickle.load(open(file_full_path, 'rb'))
 
-    if debug:
-        print file_full_path
     tmp_list = list()
     for jdc in jdcs_collection:
         tmp_list.extend(jdc)
     arr = np.array(tmp_list)
-    if debug:
-        show_pcd_3d(arr)
     if arr.shape[0] < points_num_th:
-        if debug:
-            print "points num: ", arr.shape[0]
         return False
 
     # use the distance between the marker's center and the lidar to filter
     avg = arr.mean(axis=0)
     if np.linalg.norm(avg) > range_res:
-        if debug:
-            print "avg: ", np.linalg.norm(avg)
         return False
 
     # check whether is a plane
     pca = PCA(n_components=3)
     pca.fit(arr)
     if pca.explained_variance_ratio_[2] > params['chessboard_detect_planar_PCA_ratio']:
-        if debug:
-            print "pca: ", pca.explained_variance_ratio_
         return False
 
     # map to 2D
@@ -523,8 +465,6 @@ def is_marker(file_full_path, range_res, points_num_th=250):
     points -= points.mean(axis=0)
 
     bbx = points.max(axis=0) - points.min(axis=0)
-    if debug:
-        print "bbx: ", bbx
 
     if (marker_th_l_min < bbx[0] < marker_th_l_max and marker_th_s_min < bbx[1] < marker_th_s_max) or (
             marker_th_s_min < bbx[0] < marker_th_s_max and marker_th_l_min < bbx[1] < marker_th_l_max):
@@ -546,19 +486,17 @@ def is_marker(file_full_path, range_res, points_num_th=250):
             print file_full_path
             print "passed"
             print "pca: ", pca.explained_variance_ratio_
-            if debug or show_candidates:
+            if params['show_candidates']:
                 show_pcd_3d(arr)
             return True
         else:
             return False
     else:
-        if debug:
-            print "too large or too small"
         return False
 
 
 # find the point cloud of chessboard from segmented results
-def find_marker(file_path, csv_path, range_res=params['marker_range_limit']):
+def find_marker(file_path, csv_path, range_res):
     file_list = os.listdir(file_path)
     res_ls = []
     for file in file_list:
@@ -579,12 +517,8 @@ def find_marker(file_path, csv_path, range_res=params['marker_range_limit']):
             arr = exact_full_marker_data(csv_path, [file])
             intensity_arr = arr[:, 3]
             hist, bin_edges = np.histogram(intensity_arr, 100)
-            if debug:
-                print hist, bin_edges
             num_ls.append(len(np.nonzero(hist)[0]))
         res_ls = [res_ls[np.argmax(num_ls)]]
-        if debug:
-            print res_ls
 
     assert len(res_ls) == 1
     print "marker is found!"
@@ -684,9 +618,10 @@ def transfer_by_pca(arr):
 
 
 # cost function for fitting the chessboard model and the chessboard's point cloud
-def cost_func_for_opt_mini(theta_t, transed_pcd, marker_full_data_arr, gray_zone, x_res=marker_size[0],
-                           y_res=marker_size[1],
-                           grid_len=params["grid_length"]):  # ls: grids coords(not used), arr: markers arr
+def cost_func_for_opt_mini(theta_t, transed_pcd, marker_full_data_arr, gray_zone, intensity_col_ind):
+    x_res = marker_size[0]
+    y_res = marker_size[1]
+    grid_len = params["grid_length"]
 
     transed_pcd_for_costf = np.dot(transforms3d.axangles.axangle2mat([0, 0, 1], theta_t[0]),
                                    (transed_pcd + np.array([[theta_t[1], theta_t[2], 0]])).T).T
@@ -703,7 +638,7 @@ def cost_func_for_opt_mini(theta_t, transed_pcd, marker_full_data_arr, gray_zone
     cost = 0
     for row in arr:
         if polygon_path.contains_point(row[:2]):
-            if gray_zone[0] < row[params['intensity_col_ind']] < gray_zone[1]:
+            if gray_zone[0] < row[intensity_col_ind] < gray_zone[1]:
                 y.append(0.5)
                 continue
             else:
@@ -720,7 +655,7 @@ def cost_func_for_opt_mini(theta_t, transed_pcd, marker_full_data_arr, gray_zone
                     else:
                         color = params['start_pattern_corner']
 
-                estimated_color = (np.sign(row[params['intensity_col_ind']] - gray_zone[1]) + 1) / 2
+                estimated_color = (np.sign(row[intensity_col_ind] - gray_zone[1]) + 1) / 2
                 if estimated_color != color:
                     cost += (min(abs(row[0] - x_grid_arr)) + min(abs(row[1] - y_grid_arr)))
                 y.append(color)
@@ -733,7 +668,10 @@ def cost_func_for_opt_mini(theta_t, transed_pcd, marker_full_data_arr, gray_zone
 
 
 # create the chessboard model
-def generate_grid_coords(x_res=marker_size[0], y_res=marker_size[1], grid_len=params['grid_length']):  # res, resolution
+def generate_grid_coords():  # res, resolution
+    x_res = marker_size[0]
+    y_res = marker_size[1]
+    grid_len = params['grid_length']
 
     ls = []
     for i in xrange(x_res):
@@ -757,18 +695,11 @@ def generate_grid_coords(x_res=marker_size[0], y_res=marker_size[1], grid_len=pa
 
 # analyze the intensity distribution of the chessboard's point cloud to determine the gray zone
 def get_gray_thre(intes_arr):
-    gray_zone_debug = False
     # find the gray period of intensity (if some point has the intensity in this period, the weight for this kind of pints will be zero)
     gmm = get_gmm_para(np.expand_dims(intes_arr, axis=1))
     tmp_thres = gmm.means_.mean()
-    if gray_zone_debug:
-        print "Mean of intensity by GMM: ", tmp_thres
 
     hist, bin_edges = np.histogram(intes_arr, 100)
-    if gray_zone_debug:
-        import matplotlib.pyplot as plt
-        plt.hist(intes_arr, 100)
-        plt.show()
     order = np.argsort(hist)
 
     low_intensity = -1
@@ -865,15 +796,17 @@ def opt_min(param_ls, initial_guess=np.zeros(3).tolist()):
 
 
 # utilize the defined functions to get the chessboard's corners for single frame point cloud
-def run(csv_path, save_folder_path=os.path.join(params['base_dir'], "output/pcd_seg/"), size=marker_size):
-    if not_segmented:
+def run(csv_path):
+    save_folder_path = os.path.join(params['base_dir'], "output/pcd_seg/")
+
+    if params['do_segmentation']:
         seg_pcd(csv_path, save_folder_path)
     parts = csv_path.split("/")
     find_marker_path = save_folder_path + parts[-1].split(".")[0] + "/"
 
-    marker_pkl = find_marker(file_path=os.path.abspath(find_marker_path) + "/", csv_path=csv_path)
+    marker_pkl = find_marker(os.path.abspath(find_marker_path) + "/", csv_path, params['marker_range_limit'])
     marker_full_data_arr = exact_full_marker_data(csv_path, marker_pkl)
-    if show_found_board:
+    if params['show_found_board']:
         show_pcd_3d(marker_full_data_arr[:, :3])
 
     # project the points of the chessboard to the estimated plane
@@ -887,50 +820,62 @@ def run(csv_path, save_folder_path=os.path.join(params['base_dir'], "output/pcd_
     marker_data_arr_fitted = np.array(fitted_list)
     marker_full_data_arr_fitted = np.hstack([marker_data_arr_fitted, marker_full_data_arr[:, 3:]])
 
+    # find intensity col
+    intensity_col_ind = 3
+    with open(csv_path) as f:
+        first_line = f.readline()
+    header_itmes = first_line.split(",")
+    for i in xrange(len(header_itmes)):
+        if header_itmes[i].find("intensity") > -1:
+            print "intensity is found in ", i, "-th colunm!"
+            intensity_col_ind = i
+            break
+    else:
+        warnings.warn(
+            "intensity is not found in the hearder of the csv file. This may cause the pattern corners failed to optimize.",
+            UserWarning)
+
     # rotate and translate the chessboard so that it is in XY plane with sides parallel to X and Y axes
     # and its center is in the origin
-    if 1:
-        rot1, transed_pcd = transfer_by_pca(marker_data_arr_fitted)
-        t1 = transed_pcd.mean(axis=0)
-        transed_pcd = transed_pcd - t1
-        if show_XY_board:
-            show_pcd_2d(transed_pcd, marker_full_data_arr_fitted[:, params['intensity_col_ind']])
+    rot1, transed_pcd = transfer_by_pca(marker_data_arr_fitted)
+    t1 = transed_pcd.mean(axis=0)
+    transed_pcd = transed_pcd - t1
+    if params['show_XY_board']:
+        show_pcd_2d(transed_pcd, marker_full_data_arr_fitted[:, intensity_col_ind])
 
     # calculate the rotate angle in XY plane around the Z axis
-    if 1:
-        low_intes, high_intens = get_gray_thre(marker_full_data_arr_fitted[:, params['intensity_col_ind']])
-        print "low_intes,high_intes:", low_intes, high_intens
-        rate = 2
-        gray_zone = np.array([((rate - 1) * low_intes + high_intens), (low_intes + (rate - 1) * high_intens)]) / rate
+    low_intes, high_intens = get_gray_thre(marker_full_data_arr_fitted[:, intensity_col_ind])
+    print "low_intes, high_intes:", low_intes, high_intens
+    rate = 2
+    gray_zone = np.array([((rate - 1) * low_intes + high_intens), (low_intes + (rate - 1) * high_intens)]) / rate
 
-        methods = ['Powell']
-        res_dict = {}
+    methods = ['Powell']
+    res_dict = {}
 
-        # for parallel processing
-        args = (transed_pcd, marker_full_data_arr, gray_zone,)
-        param_ls = [[method, args] for method in methods]
-        res_ls = map(opt_min, param_ls)
-        for item in res_ls:
-            if item is not None:
-                res_dict[item[0]] = item[1]
+    # for parallel processing
+    args = (transed_pcd, marker_full_data_arr, gray_zone, intensity_col_ind)
+    param_ls = [[method, args] for method in methods]
+    res_ls = map(opt_min, param_ls)
+    for item in res_ls:
+        if item is not None:
+            res_dict[item[0]] = item[1]
 
-        res = res_dict[min(res_dict)][1]
+    res = res_dict[min(res_dict)][1]
 
-        print res_dict[min(res_dict)][0]
-        print res
+    print res_dict[min(res_dict)][0]
+    print res
 
-        rot2 = transforms3d.axangles.axangle2mat([0, 0, 1], res.x[0])
-        t2 = np.array([res.x[1], res.x[2], 0])
+    rot2 = transforms3d.axangles.axangle2mat([0, 0, 1], res.x[0])
+    t2 = np.array([res.x[1], res.x[2], 0])
 
-        if 1:
-            transed_pcd = np.dot(transforms3d.axangles.axangle2mat([0, 0, 1], res.x[0]),
-                                 (transed_pcd + np.array([[res.x[1], res.x[2], 0]])).T).T
-            if show_refined_board:
-                show_pcd_2d(transed_pcd, marker_full_data_arr_fitted[:, params['intensity_col_ind']])
+    transed_pcd = np.dot(transforms3d.axangles.axangle2mat([0, 0, 1], res.x[0]),
+                            (transed_pcd + np.array([[res.x[1], res.x[2], 0]])).T).T
+    if params['show_refined_board']:
+        show_pcd_2d(transed_pcd, marker_full_data_arr_fitted[:, intensity_col_ind])
 
-        grid_coords = generate_grid_coords()
-        grid_ls = [(p[0]).flatten()[:2] for p in grid_coords]
-        corner_arr = np.transpose(np.array(grid_ls).reshape(size[0], size[1], 2)[1:, 1:], (1, 0, 2))
+    grid_coords = generate_grid_coords()
+    grid_ls = [(p[0]).flatten()[:2] for p in grid_coords]
+    corner_arr = np.transpose(np.array(grid_ls).reshape(marker_size[0], marker_size[1], 2)[1:, 1:], (1, 0, 2))
 
     return [rot1, t1, rot2, t2, corner_arr, res.x, os.path.relpath(marker_pkl[0])]
 
@@ -940,7 +885,7 @@ def main_for_pool(i):
     pcd_file = os.path.join(params['base_dir'], "pcd/") + str(i).zfill(params["file_name_digits"]) + ".csv"
     print pcd_file
     try:
-        result = run(csv_path=pcd_file)
+        result = run(pcd_file)
         print result
         save_file_path = os.path.join(params['base_dir'], "output/pcd_seg/") + str(i).zfill(
             params["file_name_digits"]) + "_pcd_result.pkl"
@@ -962,8 +907,8 @@ def detect_pcd_corners():
     for file in file_ls:
         if file.find("csv") > -1:
             pcd_ls.append(int(re.findall(r'\d+', file)[0]))
-    for rem in skip_ids:
-        pcd_ls.remove(rem)
+    for remove_num in make_tuple(params['pcd_skip_nums']):
+        pcd_ls.remove(remove_num)
     if params["multi_proc"]:
         pool = Pool(params["proc_num"])
         pool.map(main_for_pool, pcd_ls)
@@ -973,5 +918,32 @@ def detect_pcd_corners():
 
 
 if __name__ == "__main__":
+    params = config.default_params()
+
+    marker_size = make_tuple(params["pattern_size"])
+    marker_s = params["grid_length"] * marker_size[0]
+    marker_l = params["grid_length"] * marker_size[1]
+
+    marker_th_l_min = marker_l * params['min_scale']
+    marker_th_s_min = marker_s * params['min_scale']
+
+    marker_th_l_max = marker_l * params['max_scale']
+    marker_th_s_max = marker_s * params['max_scale']
+
+    # get vertical and horizontal scan resolution for jdc and agglomeration
+    if params['LiDAR_type'] == 'hdl32':
+        h_coef = 2 * np.sin(np.deg2rad(360. / (70000. / 32.)) / 2)
+        v_coef = 2 * np.sin(np.deg2rad(41.34 / 31.) / 2.)
+    elif params['LiDAR_type'] == 'hdl64':
+        h_coef = 2 * np.sin(np.deg2rad(0.08) / 2)
+        v_coef = 2 * np.sin(np.deg2rad(0.4 / 2.))
+    elif params['LiDAR_type'] == 'vlp16_puck':
+        h_coef = 2 * np.sin(np.deg2rad(0.25) / 2)
+        v_coef = 2 * np.sin(np.deg2rad(2) / 2.)
+    elif params['LiDAR_type'] == 'vlp32c':
+        h_coef = 2 * np.sin(np.deg2rad(0.25) / 2)
+        v_coef = 2 * np.sin(np.deg2rad(0.333) / 2.)
+    else:
+        AssertionError("Please input the right LiDAR_type in the config.yaml")
+
     detect_pcd_corners()
-    # main_for_pool(1)

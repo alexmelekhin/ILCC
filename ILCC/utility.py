@@ -10,29 +10,18 @@ import numpy as np
 from pcd_corners_est import generate_grid_coords
 import matplotlib.pyplot as plt
 import matplotlib
+import cv2
 import vtk
-import config
 from ast import literal_eval as make_tuple
 import cPickle
-import cv2
 from LM_opt import xyz2angle, voxel2pixel
 import transforms3d
 from matplotlib.pyplot import cm
 import ast
-
 from sklearn.decomposition import PCA
 import matplotlib.path as mplPath
 import warnings
-
-params = config.default_params()
-marker_size = make_tuple(params["pattern_size"])
-(H, W) = make_tuple(params['image_res'])
-
-matplotlib.rcParams['text.usetex'] = True
-matplotlib.rcParams['text.latex.unicode'] = True
-plt.style.use("ggplot")
-
-axis_font = {'fontname': 'Arial', 'size': '35'}
+import config
 
 
 def draw_one_grd_vtk(ls):  # arr:[a,b,c,d],a:orig, b, point1, c,point 2, d,color
@@ -73,31 +62,31 @@ def draw_one_grd_vtk(ls):  # arr:[a,b,c,d],a:orig, b, point1, c,point 2, d,color
 
 # generate the color list of the point cloud for different color styles. intens_rg: color by reflectance intensity (red:high green:low),
 # intens: color by reflectance intensity (white:high back:low), autumn: matplotlib autumn color map,  cool: matplotlib cool color map
-def gen_color_tup_for_vis(color_style="intens_rg", xyzi_arr=None):
+def gen_color_tup_for_vis(color_style="intens_rg", xyzi_arr=None, intensity_col_ind=3):
     assert xyzi_arr is not None, "The array of the point cloud must be not None"
-    a = xyzi_arr[:, params['intensity_col_ind']].min()
-    b = xyzi_arr[:, params['intensity_col_ind']].max()
+    a = xyzi_arr[:, intensity_col_ind].min()
+    b = xyzi_arr[:, intensity_col_ind].max()
     color_ls = []
     if color_style == "intens_rg":
-        tmp = (xyzi_arr[:, params['intensity_col_ind']] - a) / (b - a) * 255
+        tmp = (xyzi_arr[:, intensity_col_ind] - a) / (b - a) * 255
         for k in xrange(xyzi_arr.shape[0]):
-            rgb_tuple = np.array([tmp[k], 0, 255 - xyzi_arr[k, params['intensity_col_ind']]]).astype(np.int32)
+            rgb_tuple = np.array([tmp[k], 0, 255 - xyzi_arr[k, intensity_col_ind]]).astype(np.int32)
             color_ls.append(rgb_tuple)
         return color_ls
     elif color_style == "intens":
-        tmp = (xyzi_arr[:, params['intensity_col_ind']] - a) / (b - a) * 255
+        tmp = (xyzi_arr[:, intensity_col_ind] - a) / (b - a) * 255
         for k in xrange(xyzi_arr.shape[0]):
             rgb_tuple = np.repeat(tmp[k], 3).astype(np.int32)
             color_ls.append(rgb_tuple)
         return color_ls
     elif color_style == "autumn":
-        tmp = (xyzi_arr[:, params['intensity_col_ind']] - a).astype(np.float32) / (b - a)
+        tmp = (xyzi_arr[:, intensity_col_ind] - a).astype(np.float32) / (b - a)
         for k in xrange(xyzi_arr.shape[0]):
             rgb_tuple = (np.array(plt.cm.autumn(1 - tmp[k]))[:3] * 255).astype(np.int32)
             color_ls.append(rgb_tuple)
         return color_ls
     elif color_style == "cool":
-        tmp = (xyzi_arr[:, params['intensity_col_ind']] - a).astype(np.float32) / (b - a)
+        tmp = (xyzi_arr[:, intensity_col_ind] - a).astype(np.float32) / (b - a)
         for k in xrange(xyzi_arr.shape[0]):
             rgb_tuple = (np.array(plt.cm.cool(tmp[k]))[:3] * 255).astype(np.int32)
             color_ls.append(rgb_tuple)
@@ -121,7 +110,7 @@ def gen_color_tup_for_vis(color_style="intens_rg", xyzi_arr=None):
 
 
 # visualize 3D points with specified color style
-def vis_3D_points(full_lidar_arr, color_style="intens_rg"):
+def vis_3D_points(full_lidar_arr, color_style="intens_rg", intensity_col_ind=3):
     all_rows = full_lidar_arr.shape[0]
     Colors = vtk.vtkUnsignedCharArray()
     Colors.SetNumberOfComponents(3)
@@ -129,7 +118,7 @@ def vis_3D_points(full_lidar_arr, color_style="intens_rg"):
     Points = vtk.vtkPoints()
     Vertices = vtk.vtkCellArray()
 
-    tuple_ls = gen_color_tup_for_vis(color_style, xyzi_arr=full_lidar_arr)
+    tuple_ls = gen_color_tup_for_vis(color_style, xyzi_arr=full_lidar_arr, intensity_col_ind=intensity_col_ind)
 
     for k in xrange(all_rows):
         point = full_lidar_arr[k, :3]
@@ -325,11 +314,25 @@ def remove_occlusion_of_chessboard(pcd_arr, corners_in_pcd_arr):
 
 # visualize csv file of i-th point cloud
 def vis_csv_pcd(ind=1, color_style="monochrome"):
-    pcd_arr = np.genfromtxt(
-        os.path.join(params['base_dir'], "pcd/" + str(ind).zfill(params["file_name_digits"])) + ".csv", delimiter=",",
-        skip_header=1)
-    # actor = vis_3D_points(pcd_arr, color_style="intens")
-    actor = vis_3D_points(pcd_arr, color_style=color_style)
+    csvfile = os.path.join(params['base_dir'], "pcd/" + str(ind).zfill(params["file_name_digits"])) + ".csv"
+
+    intensity_col_ind = 3
+    with open(csvfile) as f:
+        first_line = f.readline()
+    header_itmes = first_line.split(",")
+    for i in xrange(len(header_itmes)):
+        if header_itmes[i].find("intensity") > -1:
+            print "intensity is found in ", i, "-th colunm!"
+            intensity_col_ind = i
+            break
+    else:
+        warnings.warn(
+            "intensity is not found in the hearder of the csv file.",
+            UserWarning)
+
+    pcd_arr = np.genfromtxt(csvfile, delimiter=",", skip_header=1)
+    # actor = vis_3D_points(pcd_arr, color_style="intens", intensity_col_ind=intensity_col_ind)
+    actor = vis_3D_points(pcd_arr, color_style=color_style, intensity_col_ind=intensity_col_ind)
     renderer = vtk.vtkRenderer()
     renderer.AddActor(actor)
     vis_with_renderer(renderer)
@@ -390,7 +393,6 @@ def cal_theorical_number_points(dis):
 
 
 def vis_all_markers(ls=[1]):
-    import vtk
     ren = vtk.vtkRenderer()
     # ren.SetBackground(.2, .3, .4)
     ren.SetBackground(.5, .6, .7)
@@ -402,6 +404,20 @@ def vis_all_markers(ls=[1]):
                                                params["file_name_digits"]) + "_pcd_result.pkl")
             csv_path = os.path.join(params['base_dir'], "pcd/" + str(i).zfill(params["file_name_digits"]) + ".csv")
 
+            intensity_col_ind = 3
+            with open(csv_path) as f:
+                first_line = f.readline()
+            header_itmes = first_line.split(",")
+            for i in xrange(len(header_itmes)):
+                if header_itmes[i].find("intensity") > -1:
+                    print "intensity is found in ", i, "-th colunm!"
+                    intensity_col_ind = i
+                    break
+            else:
+                warnings.warn(
+                    "intensity is not found in the hearder of the csv file.",
+                    UserWarning)
+
             with open(os.path.abspath(pcd_result_file), "r") as f:
                 pcd_result_ls = cPickle.load(f)
             assert pcd_result_ls is not None
@@ -412,17 +428,20 @@ def vis_all_markers(ls=[1]):
             # transformed_pcd = roate_with_rt(np.array(r_t), marker_arr)
             if i % 4 == 0:
                 actor2 = vis_3D_points(
-                    np.hstack([marker_arr + np.array([0, 0, 0]), marker_full_data_arr[:, 3:]]), color_style="intens")
+                    np.hstack([marker_arr + np.array([0, 0, 0]), marker_full_data_arr[:, 3:]]), color_style="intens",
+                    intensity_col_ind=intensity_col_ind)
             elif i % 4 == 1:
                 actor2 = vis_3D_points(
-                    np.hstack([marker_arr + np.array([0, 0, 0]), marker_full_data_arr[:, 3:]]), color_style="autumn")
+                    np.hstack([marker_arr + np.array([0, 0, 0]), marker_full_data_arr[:, 3:]]), color_style="autumn",
+                    intensity_col_ind=intensity_col_ind)
             elif i % 4 == 2:
                 actor2 = vis_3D_points(
-                    np.hstack([marker_arr + np.array([0, 0, 0]), marker_full_data_arr[:, 3:]]), color_style="cool")
+                    np.hstack([marker_arr + np.array([0, 0, 0]), marker_full_data_arr[:, 3:]]), color_style="cool",
+                    intensity_col_ind=intensity_col_ind)
             else:
                 actor2 = vis_3D_points(
-                    np.hstack([marker_arr + np.array([0, 0, 0]), marker_full_data_arr[:, 3:]]),
-                    color_style="intens_rg")
+                    np.hstack([marker_arr + np.array([0, 0, 0]), marker_full_data_arr[:, 3:]]), color_style="intens_rg",
+                    intensity_col_ind=intensity_col_ind)
             ren.AddActor(actor2)
         except:
             print i, "-th pcd corners are not found!"
@@ -516,6 +535,20 @@ def vis_ested_pcd_corners(ind=1):
                                    "output/pcd_seg/" + str(ind).zfill(params["file_name_digits"]) + "_pcd_result.pkl")
     csv_file = os.path.join(params['base_dir'], "pcd/" + str(ind).zfill(params["file_name_digits"]) + ".csv")
 
+    intensity_col_ind = 3
+    with open(csv_file) as f:
+        first_line = f.readline()
+    header_itmes = first_line.split(",")
+    for i in xrange(len(header_itmes)):
+        if header_itmes[i].find("intensity") > -1:
+            print "intensity is found in ", i, "-th colunm!"
+            intensity_col_ind = i
+            break
+    else:
+        warnings.warn(
+            "intensity is not found in the hearder of the csv file.",
+            UserWarning)
+
     full_arr = np.genfromtxt(csv_file, delimiter=",", skip_header=1)
 
     grid_coords = generate_grid_coords()
@@ -549,9 +582,9 @@ def vis_ested_pcd_corners(ind=1):
     show_only_marker = True
     if show_only_marker:
         marker_full_data_arr = exact_full_marker_data(csv_file, [pcd_result_ls[-1]])
-        actor2 = vis_3D_points(marker_full_data_arr, color_style="intens_rg")
+        actor2 = vis_3D_points(marker_full_data_arr, color_style="intens_rg", intensity_col_ind=intensity_col_ind)
     else:
-        actor2 = vis_3D_points(full_arr, color_style="intens_rg")
+        actor2 = vis_3D_points(full_arr, color_style="intens_rg", intensity_col_ind=intensity_col_ind)
     ren.AddActor(actor2)
 
     transform2 = vtk.vtkTransform()
@@ -592,7 +625,7 @@ def vis_ested_pcd_corners(ind=1):
     iren.Start()
 
 
-def draw_chessboard_model(marker_size=marker_size):
+def draw_chessboard_model():
     gird_coords = generate_grid_coords(x_res=marker_size[0], y_res=marker_size[1])
     grid_ls = [(p[0]).flatten()[:2] for p in gird_coords]
     corner_arr = np.transpose(np.array(grid_ls).reshape(marker_size[0], marker_size[1], 2)[1:, 1:], (1, 0, 2))
@@ -743,10 +776,24 @@ def vis_back_proj(ind=1, img_style="edge", pcd_style="intens", hide_occlussion_b
 
     csvfile = os.path.join(params['base_dir'], "pcd/" + str(ind).zfill(params["file_name_digits"]) + ".csv")
 
+    intensity_col_ind = 3
+    with open(csvfile) as f:
+        first_line = f.readline()
+    header_itmes = first_line.split(",")
+    for i in xrange(len(header_itmes)):
+        if header_itmes[i].find("intensity") > -1:
+            print "intensity is found in ", i, "-th colunm!"
+            intensity_col_ind = i
+            break
+    else:
+        warnings.warn(
+            "intensity is not found in the hearder of the csv file.",
+            UserWarning)
+
     csv = np.genfromtxt(csvfile, delimiter=",", skip_header=1)
     pcd = csv[:, :3]
     dis_arr = np.linalg.norm(pcd, axis=1)
-    intens = csv[:, params['intensity_col_ind']]
+    intens = csv[:, intensity_col_ind]
 
     cali_file_ls = []
     if calib_file:
@@ -808,6 +855,16 @@ def vis_back_proj(ind=1, img_style="edge", pcd_style="intens", hide_occlussion_b
 
 
 if __name__ == "__main__":
+    params = config.default_params()
+    marker_size = make_tuple(params["pattern_size"])
+    (H, W) = make_tuple(params['image_res'])
+
+    matplotlib.rcParams['text.usetex'] = True
+    matplotlib.rcParams['text.latex.unicode'] = True
+    plt.style.use("ggplot")
+
+    axis_font = {'fontname': 'Arial', 'size': '35'}
+
     # vis_back_proj(ind=1, img_style="orig", pcd_style="dis", hide_occlussion_by_marker=False)
     # vis_back_proj(ind=2, img_style="orig", pcd_style="dis", hide_occlussion_by_marker=False)
     # vis_back_proj(ind=3, img_style="orig", pcd_style="dis", hide_occlussion_by_marker=False)
