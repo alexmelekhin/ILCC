@@ -2,6 +2,7 @@ import rosbag
 import argparse
 import os
 from os import path as osp
+from pathlib2 import Path
 import numpy as np
 from cv_bridge import CvBridge
 import cv2
@@ -111,6 +112,10 @@ def extract_rosbag_data_folder(data_folder, images_topic, point_clouds_topic, ou
 if __name__ == '__main__':
     parser = build_parser()
     args = parser.parse_args()
+
+    Path(args.out_images_folder).mkdir(exist_ok=True)
+    Path(args.out_point_clouds_folder).mkdir(exist_ok=True)
+
     if args.do_undistort:
         camera_matrix = args.camera_matrix
         camera_matrix = camera_matrix.split()
@@ -124,9 +129,11 @@ if __name__ == '__main__':
     else:
         camera_matrix = None
         distortion_coefficients = None
+
     extract_rosbag_data_folder(args.data_folder, args.images_topic, args.point_clouds_topic, args.out_images_folder,
                                args.out_point_clouds_folder, undistort=args.do_undistort, camera_matrix=camera_matrix,
                                distortion_coefficients=distortion_coefficients)
+
     if args.do_undistort and new_image_shape_comp is not None:
         print('New image shape (w, h): ', new_image_shape_comp)
         print('New camera matrix: ', list(new_camera_matrix_comp.reshape(1, 9)[0]))
