@@ -5,6 +5,7 @@ from pathlib2 import Path
 from ast import literal_eval as make_tuple
 import shutil
 import sys
+import argparse
 import config
 
 
@@ -113,5 +114,9 @@ def detect_img_corners():
 
 
 if __name__ == '__main__':
-    params = config.default_params()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('config_file', type=str)
+    args = parser.parse_args()
+    params = config.default_params(args.config_file)
+
     detect_img_corners()

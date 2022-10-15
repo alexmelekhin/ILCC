@@ -8,13 +8,10 @@ import yaml
 import os
 
 
-dataset = 'realsense_lidar_calib'
-
-
-def default_params():
+def default_params(config_file):
     '''Return default configuration
     '''
-    default_params_yaml = open(dataset + "/config.yaml", "r")
+    default_params_yaml = open(config_file, "r")
     if(yaml.__version__[0]>=5):
         params = yaml.safe_load(default_params_yaml)
     else:

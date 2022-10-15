@@ -9,8 +9,9 @@ import math
 from scipy.optimize import least_squares
 import pyopengv
 import time
-import config
 from ast import literal_eval as make_tuple
+import argparse
+import config
 
 
 # Checks if a matrix is a valid rotation matrix.
@@ -494,7 +495,11 @@ def cal_ext_paras():
 
 
 if __name__ == "__main__":
-    params = config.default_params()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('config_file', type=str)
+    args = parser.parse_args()
+    params = config.default_params(args.config_file)
+
     (H, W) = make_tuple(params['image_res'])
 
     if params['camera_type'] == "perspective":

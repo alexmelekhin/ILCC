@@ -21,6 +21,7 @@ import ast
 from sklearn.decomposition import PCA
 import matplotlib.path as mplPath
 import warnings
+import argparse
 import config
 
 
@@ -855,7 +856,11 @@ def vis_back_proj(ind=1, img_style="edge", pcd_style="intens", hide_occlussion_b
 
 
 if __name__ == "__main__":
-    params = config.default_params()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('config_file', type=str)
+    args = parser.parse_args()
+    params = config.default_params(args.config_file)
+
     marker_size = make_tuple(params["pattern_size"])
     (H, W) = make_tuple(params['image_res'])
 

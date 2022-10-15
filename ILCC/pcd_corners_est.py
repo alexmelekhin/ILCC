@@ -15,6 +15,7 @@ import re
 import warnings
 import cv2
 import vtk
+import argparse
 import config
 
 
@@ -918,7 +919,10 @@ def detect_pcd_corners():
 
 
 if __name__ == "__main__":
-    params = config.default_params()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('config_file', type=str)
+    args = parser.parse_args()
+    params = config.default_params(args.config_file)
 
     marker_size = make_tuple(params["pattern_size"])
     marker_s = params["grid_length"] * marker_size[0]
