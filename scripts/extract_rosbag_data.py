@@ -33,17 +33,8 @@ def do_undistort(image, camera_matrix, distortion_coefficients):
     global new_image_shape_comp
     global new_camera_matrix_comp
     assert (camera_matrix is not None) and (distortion_coefficients is not None)
-    h, w = image.shape[:2]
-    new_camera_matrix, roi = cv2.getOptimalNewCameraMatrix(camera_matrix, distortion_coefficients, (w, h), 0)
-    undistorted = cv2.undistort(image, camera_matrix, distortion_coefficients, None, new_camera_matrix)
-    x, y, w, h = roi
-    undistorted = undistorted[y:y + h, x:x + w]
-    if new_image_shape_comp is None:
-        new_image_shape_comp = (w, h)
-        new_camera_matrix_comp = new_camera_matrix
-    else:
-        assert new_image_shape_comp == (w, h)
-        assert np.all(new_camera_matrix_comp == new_camera_matrix)
+    undistorted = cv2.undistort(image, camera_matrix, distortion_coefficients)
+    assert image.shape == undistorted.shape
     return undistorted
 
 
