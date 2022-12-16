@@ -908,7 +908,7 @@ def detect_pcd_corners():
     for file in file_ls:
         if file.find("csv") > -1:
             pcd_ls.append(int(re.findall(r'\d+', file)[0]))
-    for remove_num in make_tuple(params['pcd_skip_nums']):
+    for remove_num in make_tuple(params['pcd_skip_ids']):
         pcd_ls.remove(remove_num)
     if params["multi_proc"]:
         pool = Pool(params["proc_num"])

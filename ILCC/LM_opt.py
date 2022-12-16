@@ -287,7 +287,7 @@ def opt_r_t(corners_in_img_arr, corners_in_pcd_arr, initial_guess=np.zeros(6).to
 
 def cal_ext_paras():
     ls = (np.arange(1, params['poses_num']+1)).tolist()
-    for remove_num in set(make_tuple(params['img_skip_nums']) + make_tuple(params['pcd_skip_nums'])):
+    for remove_num in set(make_tuple(params['img_skip_ids']) + make_tuple(params['pcd_skip_ids'])):
         ls.remove(remove_num)
     # res_ls = []
     # pnp_ls = []

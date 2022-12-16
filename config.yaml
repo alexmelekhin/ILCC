@@ -18,7 +18,7 @@
 #                                                                                   4,5,6
 #                                                                                   7,8,9]
 'save_img_with_dectected_corners': True  # save images with detected corners
-'img_skip_nums': ()  # images numbers to skip
+'img_skip_ids': ()  # images ids to skip
 
 
 ###### Point cloud segmentation parameters
@@ -27,7 +27,7 @@
 'laser_beams_num': 32  # the number of the laser beams of the Velodyne LiDAR
 'jdc_thre_ratio': 5  # the ratio of adaptive threshold for clustering scanline
 'agglomerative_cluster_th_ratio': 5  # the ratio of adaptive threshold for combining the scanline cluters
-'pcd_skip_nums': ()  # point cloud numbers to skip
+'pcd_skip_ids': ()  # point cloud ids to skip
 
 
 ###### Chessboard detection parameters

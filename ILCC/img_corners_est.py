@@ -96,7 +96,7 @@ def detect_img_corners():
         shutil.rmtree(img_corner_path)
     os.makedirs(img_corner_path)
     for i in ls:
-        if i in make_tuple(params['img_skip_nums']):
+        if i in make_tuple(params['img_skip_ids']):
             continue
         try:
             image_filename = os.path.join(params['base_dir'],
