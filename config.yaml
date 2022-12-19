@@ -11,7 +11,7 @@
 
 ###### Image corner detection parameters
 'image_res': (4000, 8000)  # image resolution for panoramic images only
-'backend': 'matlab'  # backend of corners detection from the image, 'matlab' or 'opencv'
+'backend': 'opencv'  # backend of corners detection from the image, 'matlab' or 'opencv'
 'camera_type': 'perspective'  # camera model: 'panoramic' or 'perspective'
 'instrinsic_para': (166.87739756, 0., 311.29512622,  0., 334.91696616, 781.89612824,   0., 0., 1.)
 # intrinsic parameters are necessary for perspective cameras (1,2,3,4,5,6,7,8,9)→　[1,2,3
