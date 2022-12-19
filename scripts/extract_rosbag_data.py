@@ -12,8 +12,6 @@ import csv
 
 
 bridge = CvBridge()
-new_image_shape_comp = None
-new_camera_matrix_comp = None
 
 
 def build_parser():
@@ -30,8 +28,6 @@ def build_parser():
 
 
 def do_undistort(image, camera_matrix, distortion_coefficients):
-    global new_image_shape_comp
-    global new_camera_matrix_comp
     assert (camera_matrix is not None) and (distortion_coefficients is not None)
     undistorted = cv2.undistort(image, camera_matrix, distortion_coefficients)
     assert image.shape == undistorted.shape
@@ -124,8 +120,4 @@ if __name__ == '__main__':
     extract_rosbag_data_folder(args.data_folder, args.images_topic, args.point_clouds_topic, args.out_images_folder,
                                args.out_point_clouds_folder, undistort=args.do_undistort, camera_matrix=camera_matrix,
                                distortion_coefficients=distortion_coefficients)
-
-    if args.do_undistort and new_image_shape_comp is not None:
-        print('New image shape (w, h): ', new_image_shape_comp)
-        print('New camera matrix: ', list(new_camera_matrix_comp.reshape(1, 9)[0]))
         
