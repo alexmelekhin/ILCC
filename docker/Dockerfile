@@ -1,4 +1,4 @@
-FROM osrf/ros:kinetic-desktop-full
+FROM nvidia/opengl:1.2-glvnd-runtime-ubuntu16.04
 
 ENV DEBIAN_FRONTEND noninteractive
 
@@ -16,8 +16,7 @@ RUN apt-get update && apt-get install -y \
     python-pip \
     python-tk \
     libopencv-dev \
-    libpcl-dev \ 
-    ros-kinetic-rosbag && \
+    libpcl-dev && \
     rm -rf /var/lib/apt/lists/*
 
 # Upgrade pip
@@ -36,7 +35,8 @@ RUN pip install \
     pyopen==0.0.5 \
     scipy==1.2.3 \
     scikit-learn==0.20.4 \
-    python-pcl==0.3.0a1
+    python-pcl==0.3.0a1 \
+    PyYAML==5.4.1
 
 # Build and install OpenGV
 ARG OPENGV_COMMIT=91f4b19c73450833a40e463ad3648aae80b3a7f3
