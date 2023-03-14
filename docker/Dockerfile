@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y \
     g++ \
     git \
     vim \
+    sudo \
     python-pip \
     python-tk \
     libopencv-dev \
