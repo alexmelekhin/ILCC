@@ -53,9 +53,12 @@ def get_corner_coords(image_filesname, backend, size, save_corners):
     elif backend == "opencv":
         print "OpenCV " + str(cv2.__version__) + " is used as backend for detecting corners"
         img = cv2.imread(image_filesname)
+        # img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         size=(size[0]-1,size[1]-1)
         print img.shape
 
+        # flags = cv2.CALIB_CB_EXHAUSTIVE + cv2.CALIB_CB_ACCURACY
+        # ret, corners = cv2.findChessboardCornersSB(img, size, flags=None)
         ret, corners = cv2.findChessboardCorners(img, size,
                                                  flags=cv2.CALIB_CB_ADAPTIVE_THRESH + cv2.CALIB_CB_NORMALIZE_IMAGE + cv2.CALIB_CB_FAST_CHECK)
         # flags=cv2.cv.CV_CALIB_CB_ADAPTIVE_THRESH + cv2.cv.CV_CALIB_CB_NORMALIZE_IMAGE + cv2.CALIB_CB_FAST_CHECK
@@ -104,12 +107,14 @@ def detect_img_corners():
             print image_filename
             corner_points = get_corner_coords(image_filename, params['backend'], make_tuple(params['pattern_size']),
                                               params['save_img_with_dectected_corners'])
-
+            print "Get corner points"
+            print corner_points
             # print corner_points
             save_points_filename = img_corner_path + str(i).zfill(
                 params['file_name_digits']) + "_img_corners" + ".txt"
             np.savetxt(save_points_filename, np.squeeze(corner_points), delimiter=",")
-        except:
+        except Exception as e:
+            print e
             raise RuntimeError()
 
 

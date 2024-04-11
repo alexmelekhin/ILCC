@@ -401,7 +401,7 @@ def show_pcd_3d(array_data, color_arr=[0, 255, 0]):
     renderWindowInteractor.Start()
 
 
-def show_pcd_2d(pcd, intensities):
+def show_pcd_2d(pcd, intensities, window_name = "pcd"):
     min_x = pcd[:, 0].min()
     max_x = pcd[:, 0].max()
     min_y = pcd[:, 1].min()
@@ -425,13 +425,13 @@ def show_pcd_2d(pcd, intensities):
         cv2.circle(image, (i, j), 2, (brightness, brightness, brightness), 2)
     cv2.line(image, (0, int(im_h / 2)), (im_w - 1, int(im_h / 2)), (0, 0, 255), 1)
     cv2.line(image, (int(im_w / 2), 0), (int(im_w / 2), im_h - 1), (0, 0, 255), 1)
-    cv2.imshow('pcd', image)
+    cv2.imshow(window_name, image)
     while True:
         k = cv2.waitKey(1)
         if k == 27:
             cv2.destroyAllWindows()
             break
-        if cv2.getWindowProperty('pcd', cv2.WND_PROP_VISIBLE) < 1:
+        if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1:
             break
 
 
@@ -842,7 +842,7 @@ def run(csv_path):
     t1 = transed_pcd.mean(axis=0)
     transed_pcd = transed_pcd - t1
     if params['show_XY_board']:
-        show_pcd_2d(transed_pcd, marker_full_data_arr_fitted[:, intensity_col_ind])
+        show_pcd_2d(transed_pcd, marker_full_data_arr_fitted[:, intensity_col_ind], "XY board: " + csv_path)
 
     # calculate the rotate angle in XY plane around the Z axis
     low_intes, high_intens = get_gray_thre(marker_full_data_arr_fitted[:, intensity_col_ind])
@@ -872,7 +872,7 @@ def run(csv_path):
     transed_pcd = np.dot(transforms3d.axangles.axangle2mat([0, 0, 1], res.x[0]),
                             (transed_pcd + np.array([[res.x[1], res.x[2], 0]])).T).T
     if params['show_refined_board']:
-        show_pcd_2d(transed_pcd, marker_full_data_arr_fitted[:, intensity_col_ind])
+        show_pcd_2d(transed_pcd, marker_full_data_arr_fitted[:, intensity_col_ind], "Refined: " + csv_path)
 
     grid_coords = generate_grid_coords()
     grid_ls = [(p[0]).flatten()[:2] for p in grid_coords]
