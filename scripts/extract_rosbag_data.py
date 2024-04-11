@@ -43,6 +43,7 @@ def extract_rosbag_image(bag, images_topic, undistort=False, camera_matrix=None,
         image = bridge.imgmsg_to_cv2(image_msg, desired_encoding='passthrough')
     if undistort:
         image = do_undistort(image, camera_matrix, distortion_coefficients)
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     return image
 
 
@@ -80,10 +81,12 @@ def extract_rosbag_data_folder(data_folder, images_topic, point_clouds_topic, ou
                                out_point_clouds_folder, undistort=False, camera_matrix=None,
                                distortion_coefficients=None):
     file_names = os.listdir(data_folder)
+    print file_names
     for file_name in file_names:
         if not file_name.endswith('.bag'):
             continue
         if not file_name[:-4].isdigit():
+            print "not is digit"
             continue
         bag = rosbag.Bag(osp.join(data_folder, file_name), 'r')
         image, point_cloud = extract_rosbag_data(bag, images_topic, point_clouds_topic, undistort=undistort,
@@ -99,6 +102,7 @@ def extract_rosbag_data_folder(data_folder, images_topic, point_clouds_topic, ou
 if __name__ == '__main__':
     parser = build_parser()
     args = parser.parse_args()
+    print args
 
     Path(args.out_images_folder).mkdir(exist_ok=True)
     Path(args.out_point_clouds_folder).mkdir(exist_ok=True)
@@ -120,4 +124,3 @@ if __name__ == '__main__':
     extract_rosbag_data_folder(args.data_folder, args.images_topic, args.point_clouds_topic, args.out_images_folder,
                                args.out_point_clouds_folder, undistort=args.do_undistort, camera_matrix=camera_matrix,
                                distortion_coefficients=distortion_coefficients)
-        
