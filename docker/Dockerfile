@@ -17,8 +17,23 @@ RUN apt-get update && apt-get install -y \
     python-pip \
     python-tk \
     libopencv-dev \
-    libpcl-dev && \
+    libpcl-dev \
+    lsb-release && \
     rm -rf /var/lib/apt/lists/*
+
+# Install ROS1 Noetic
+RUN sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list' && \
+    curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | apt-key add - && \
+    apt-get update && apt-get install --no-install-recommends -y \
+        ros-kinetic-desktop \
+        ros-kinetic-cv-bridge \
+        ros-kinetic-image-transport-plugins \
+        python-rosdep \
+        python-rosinstall \
+        python-rosinstall-generator \
+        python-wstool && \
+    rosdep init && \
+    rosdep update
 
 # Upgrade pip
 RUN pip install --upgrade pip==20.3.4
@@ -36,8 +51,8 @@ RUN pip install \
     pyopen==0.0.5 \
     scipy==1.2.3 \
     scikit-learn==0.20.4 \
-    python-pcl==0.3.0a1 \
-    PyYAML==5.4.1
+    python-pcl==0.3.0a1
+#    PyYAML==5.4.1
 
 # Build and install OpenGV
 ARG OPENGV_COMMIT=91f4b19c73450833a40e463ad3648aae80b3a7f3
@@ -60,10 +75,7 @@ ARG GID=1000
 ARG PW=user
 
 # Add user and his password
-RUN useradd -m ${USER} --uid=${UID} && \
-    echo "${USER}:${PW}" | chpasswd && \
-    usermod -s /bin/bash ${USER} && \
-    usermod -a -G sudo ${USER}
+RUN useradd -m -G sudo ${USER} --uid=${UID} && echo "${USER}:${PW}" | chpasswd
 
 WORKDIR /home/${USER}
 USER ${UID}:${GID}
